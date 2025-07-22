@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "axomotor-driver",
-    "slug": "axomotor-driver",
+    "name": "axomotor-driver-app",
+    "slug": "axomotor-driver-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
