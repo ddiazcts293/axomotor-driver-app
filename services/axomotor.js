@@ -1,32 +1,65 @@
-import axios, { Axios } from 'axios'
 import { axomotorApiUrl } from '../secrets'
 
-async function get(endpoint) {
+const defaultHeaders = {
+    'Content-Type': 'application/json'
+};
+
+async function get(endpoint, options = {}) {
     const url = `${axomotorApiUrl}/${endpoint}`;
+    console.log(`Making request to ${url}...`);
 
-    axios.get(url)
-        .then((response) => {
-
-
-
-
-            console.log(response);
-        })
-        .catch((error) => {
-
+    try {
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                ...defaultHeaders,
+                ...(options.headers || {})
+            }
         });
 
+        const content = await response.json();
+        if (content.code !== 'success') {
+            throw {
+                code: content.code,
+                message: content?.reason || 'Unknown error'
+            };
+        }
 
+        return content?.result || {};
+    } catch (error) {
+        console.error('Error making request:', error);
+        throw error;
+    }
 }
 
-export function getMe() {
+const AxoMotorAPI = {
+    async getMe() {
+        return get("userAccounts/me");
+    },
+
+    async getCurrentTrip() {
+        return get("trips/pending/3");
+    },
     
-}
+    async getTrip() {
+        return get("trips");
+    },
 
-export function startTrip() {
-    
-}
+    async startTrip() {
+        
+    },
 
-export function reportIncident() {
-    
-}
+    async stopTrip() {
+        
+    },
+
+    async listIncidents() {
+        
+    },
+
+    async reportIncident(incident) {
+        
+    },
+};
+
+export default AxoMotorAPI;
