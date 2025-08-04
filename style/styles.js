@@ -44,4 +44,8 @@ export const globalStyles = StyleSheet.create({
     justifyContent: 'space-between',
     marginVertical: 20,
   },
+  iconRow: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  },
 });

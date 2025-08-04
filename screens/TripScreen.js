@@ -1,12 +1,5 @@
-import React, { useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Animated,
-} from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, } from 'react-native';
 
 const TravelInfoCard = ({ title, location, address, time }) => (
   <View style={styles.card}>
@@ -76,7 +69,13 @@ const AnimatedTripButton = ({ status, onPress }) => {
 };
 
 const TripScreen = () => {
-  const tripStatus = 'activo';
+  const [tripStatus, setTripStatus] = useState('inactivo');
+
+  const toggleTripStatus = () => {
+    if (tripStatus === 'inactivo') setTripStatus('activo');
+    else if (tripStatus === 'activo') setTripStatus('pausado');
+    else if (tripStatus === 'pausado') setTripStatus('activo');
+  };
 
   const stops = [
     {
@@ -101,32 +100,33 @@ const TripScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
+      {/* Origen y destino en fila */}
+      <View style={styles.headerRow}>
+        <TravelInfoCard
+          title="Origen"
+          location="Oficinas"
+          address="Calle 123"
+          time="08:00 AM"
+        />
+        <TravelInfoCard
+          title="Destino"
+          location="Planta Central"
+          address="Avenida 456"
+          time="10:30 AM"
+        />
+      </View>
+
+      {/* Mapa */}
       <View style={styles.placeholderMap}>
         <Text style={styles.placeholderText}>
           Aquí irá el mapa cuando la app esté en producción
         </Text>
       </View>
 
-      <TravelInfoCard
-        title="Origen"
-        location="Oficinas"
-        address="Calle 123"
-        time="08:00 AM"
-      />
-      <TravelInfoCard
-        title="Destino"
-        location="Planta Central"
-        address="Avenida 456"
-        time="10:30 AM"
-      />
+      {/* Botón de viaje */}
+      <AnimatedTripButton status={tripStatus} onPress={toggleTripStatus} />
 
-      <AnimatedTripButton
-        status={tripStatus}
-        onPress={() => {
-          // Lógica para iniciar/detener/pausar viaje
-        }}
-      />
-
+      {/* Paradas */}
       <View style={styles.stopsSection}>
         {stops.map((stop, index) => (
           <StopItem
@@ -143,17 +143,25 @@ const TripScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#F7EFDF' },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+  },
   placeholderMap: {
-    height: 200,
+    height: 310,
     backgroundColor: '#e0e0e0',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginVertical: 10,
+    marginHorizontal: 16,
+    borderRadius: 8,
   },
   placeholderText: { color: '#555', fontStyle: 'italic' },
   card: {
-    margin: 16,
+    flex: 1,
+    margin: 8,
     padding: 12,
     backgroundColor: '#fff',
     borderRadius: 8,

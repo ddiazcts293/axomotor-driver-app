@@ -2,17 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as Linking from 'expo-linking';
-import { supabase } from './supabase_client';
-
+import { supabase } from './services/supabase_client';
+import { TouchableOpacity } from 'react-native';
+import { FontAwesome } from '@expo/vector-icons';
 import HomeScreen from './screens/HomeScreen';
-import LoginScreen from './screens/LoginScreen';
-import ResetPasswordScreen from './screens/ResetPasswordScreen';
+import LogInScreen from './screens/LogInScreen';
 import SplashScreen from './components/SplashScreen';
 import ReportIncidentScreen from './screens/ReportIncidentScreen';
 import IncidentsScreen from './screens/IncidentsScreen';
 import IncidentGalleryScreen from './screens/IncidentGalleryScreen';
 import TripScreen from './screens/TripScreen';
 import DriverScreen from './screens/DriverScreen';
+import * as TaskManager from 'expo-task-manager';
+import * as Location from 'expo-location';
+import './backgroundLocation';
+import { LOCATION_TASK_NAME } from './backgroundLocation';
 
 const Stack = createNativeStackNavigator();
 
@@ -36,6 +40,7 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Primer useEffect para manejo de sesión y deep link
   useEffect(() => {
     const handleDeepLink = async () => {
       const url = await Linking.getInitialURL();
@@ -74,6 +79,35 @@ export default function App() {
     };
   }, []);
 
+  // Segundo useEffect para iniciar ubicación en segundo plano
+  useEffect(() => {
+    const startBackgroundLocation = async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
+
+      if (status !== 'granted' || bgStatus !== 'granted') {
+        console.error('❌ Permisos de ubicación denegados');
+        return;
+      }
+
+      const isRegistered = await TaskManager.isTaskRegisteredAsync('background-location-task');
+      if (!isRegistered) {
+        await Location.startLocationUpdatesAsync('background-location-task', {
+          accuracy: Location.Accuracy.Highest,
+          timeInterval: 10000, // cada 10 segundos
+          distanceInterval: 0,
+          showsBackgroundLocationIndicator: false,
+          foregroundService: {
+            notificationTitle: 'Rastreo activo',
+            notificationBody: 'Enviando ubicación en segundo plano...',
+          },
+        });
+      }
+    };
+
+    startBackgroundLocation();
+  }, []);
+
   if (loading) {
     return <SplashScreen />;
   }
@@ -86,50 +120,47 @@ export default function App() {
             <Stack.Screen
               name="Home"
               component={HomeScreen}
-              options={{ title: 'Panel Principal' }}
+              options={({ navigation }) => ({
+                title: 'Panel principal',
+                headerRight: () => (
+                  <TouchableOpacity onPress={() => navigation.navigate('Driver')} style={{ marginRight: 16 }}>
+                    <FontAwesome name="cog" size={24} color="#fff" />
+                  </TouchableOpacity>
+                ),
+              })}
             />
             <Stack.Screen
               name="ReportIncident"
               component={ReportIncidentScreen}
-              options={{ title: 'Registrar Incidente' }}
+              options={{ title: 'Reportar incidencia' }}
             />
             <Stack.Screen
               name="Incidents"
               component={IncidentsScreen}
-              options={{ title: 'Incidencias Reportadas' }}
-            />
-            <Stack.Screen
-              name="ResetPasswordScreen"
-              component={ResetPasswordScreen}
-              options={{ title: 'Restablecer Contraseña' }}
+              options={{ title: 'Incidencias' }}
             />
             <Stack.Screen
               name="IncidentGallery"
               component={IncidentGalleryScreen}
-              options={{ title: 'Galería de Incidentes' }}
+              options={{ title: 'Galería de incidentes' }}
             />
             <Stack.Screen
               name="Viaje"
-              component={TripScreen} 
-              options={{ title: 'Viaje' }}
-              />
+              component={TripScreen}
+              options={{ title: 'Viajes' }}
+            />
             <Stack.Screen
               name="Driver"
-              component={DriverScreen} //
-              options={{ title: 'Ajustes de Conductor' }}
+              component={DriverScreen}
+              options={{ title: 'Conductor' }}
             />
           </>
         ) : (
           <>
             <Stack.Screen
               name="Login"
-              component={LoginScreen}
+              component={LogInScreen}
               options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="ResetPasswordScreen"
-              component={ResetPasswordScreen}
-              options={{ title: 'Restablecer Contraseña' }}
             />
           </>
         )}

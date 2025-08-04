@@ -57,7 +57,7 @@ export default function IncidentsScreen() {
       {/* Botón para crear nueva incidencia */}
         <TouchableOpacity
         style={styles.newButton}
-        onPress={() => navigation.navigate('RegisterIncident')}
+        onPress={() => navigation.navigate('ReportIncident')}
         >
         <FontAwesome name="plus" size={18} color="#fff" />
         <Text style={{ color: '#fff', marginLeft: 10, fontWeight: 'bold' }}>
@@ -71,7 +71,7 @@ export default function IncidentsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#F7EFDF',
     paddingHorizontal: 20,
   },
   card: {

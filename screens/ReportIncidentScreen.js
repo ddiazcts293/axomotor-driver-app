@@ -1,28 +1,104 @@
-// screens/ReportIncidentScreen.js
-
-import React, { useState } from 'react';
-import { View,   Text, TextInput, Button, Modal, TouchableOpacity, Image, FlatList, StyleSheet, } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, FlatList, Modal, Image } from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons';
+import { KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation } from '@react-navigation/native';
-import { colors } from '../style/theme';
+import { supabase } from '../services/supabase_client';
+import * as FileSystem from 'expo-file-system';
+import mime from 'mime';
+import * as ImageManipulator from 'expo-image-manipulator';
 
-const incidentTypes = ['Mecánico', 'Ruta', 'Carga', 'Seguridad'];
-const incidentDetails = {
-  Mecánico: ['Falla de frenos', 'Fuga de combustible', 'Batería muerta'],
-  Ruta: ['Desvío', 'Bloqueo de carretera'],
-  Carga: ['Deslizamiento', 'Daño a mercancía'],
-  Seguridad: ['Robo', 'Accidente'],
+const incidentTypes = {
+  Mecanico: ['Falla de frenos', 'Sobrecalentamiento de motor', 'Batería sin carga', 'Ponchadura'],
+  Ruta: ['Desviación', 'Bloqueo en ruta', 'Atropellamiento', 'Choque', 'Congestión vehicular'],
+  Carga: ['Daño a mercancía', 'Reparto', 'Conteo de mercancía', 'Robo'],
+  Seguridad: ['Asalto', 'Problema de salud'],
 };
 
-export default function ReportIncidentScreen() {
-  const navigation = useNavigation();
+const uploadImage = async (uri, userId) => {
+  try {
+    // 1. Comprimir y redimensionar la imagen
+    const manipulatedImage = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 1080 } }], // ajusta según lo que necesites
+      { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
+    );
 
-  const [selectedType, setSelectedType] = useState('');
-  const [selectedDetail, setSelectedDetail] = useState('');
+    const compressedUri = manipulatedImage.uri;
+    const fileName = `${userId}/${Date.now()}.jpg`;
+    const fileType = mime.getType(compressedUri) || 'image/jpeg';
+
+    const fileInfo = await FileSystem.getInfoAsync(compressedUri);
+    if (!fileInfo.exists) {
+      console.error('El archivo no existe en la ruta:', compressedUri);
+      return null;
+    }
+
+    const formData = new FormData();
+    formData.append('file', {
+      uri: compressedUri,
+      name: fileName,
+      type: fileType,
+    });
+
+    const { data, error } = await supabase.storage
+      .from('incident-images')
+      .upload(fileName, formData.get('file'), {
+        contentType: fileType,
+        upsert: false,
+      });
+
+    if (error) {
+      console.error('Error al subir imagen:', error.message);
+      return null;
+    }
+
+    return fileName;
+  } catch (err) {
+    console.error('Error al preparar archivo:', err.message);
+    return null;
+  }
+};
+
+
+const IncidentScreen = ({ navigation }) => {
+  const scrollRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const [showCategories, setShowCategories] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [description, setDescription] = useState('');
   const [images, setImages] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [fullImage, setFullImage] = useState(null);
+
+  const handleSubmit = async () => {
+  const userId = (await supabase.auth.getUser()).data.user.id;
+
+  const uploadedPaths = [];
+  for (const uri of images) {
+    const path = await uploadImage(uri, userId);
+    if (path) uploadedPaths.push(path);
+  }
+
+  // Aquí podrías guardar el incidente en tu base de datos
+  console.log('Incidente enviado con imágenes:', uploadedPaths);
+};
+
+
+  const handleCategorySelect = (category) => {
+    setSelectedCategory(category);
+    setSelectedSubcategory(null);
+  };
+
+  const handleSubcategorySelect = (sub) => {
+    setSelectedSubcategory(sub);
+  };
+
+  const handleOpenMap = () => {
+    navigation.navigate('Viaje');
+  };
 
   const handleAddImage = async (source) => {
     let result;
@@ -37,135 +113,152 @@ export default function ReportIncidentScreen() {
 
     if (!result.canceled && result.assets) {
       const newImages = result.assets.map((img) => img.uri);
-      setImages([...images, ...newImages]);
+      setImages((prev) => [...prev, ...newImages]);
     }
 
     setShowModal(false);
   };
 
-  const removeImage = (uri) => {
-    setImages(images.filter((i) => i !== uri));
-  };
-
-  const renderImage = ({ item, index }) => (
-    <TouchableOpacity
-      onPress={() => setFullImage(item)}
-      style={styles.imageWrapper}
-    >
-      <Image source={{ uri: item }} style={styles.thumbnail} />
-      <TouchableOpacity style={styles.closeIcon} onPress={() => removeImage(item)}>
-        <Text style={{ color: '#fff', fontSize: 12 }}>✕</Text>
-      </TouchableOpacity>
+  const renderImage = ({ item }) => (
+    <TouchableOpacity onPress={() => setFullImage(item)} style={styles.thumbnail}>
+      <Image source={{ uri: item }} style={styles.thumbnailImage} />
     </TouchableOpacity>
   );
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      <Text style={styles.label}>Tipo de incidente</Text>
-      <TextInput
-        placeholder="Selecciona tipo"
-        value={selectedType}
-        onFocus={() => setSelectedType('')} // opcional para abrir modal de selección
-        style={styles.input}
-      />
-      <FlatList
-        data={incidentTypes}
-        horizontal
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.chip,
-              item === selectedType && { backgroundColor: colors.primaryBlue },
-            ]}
-            onPress={() => {
-              setSelectedType(item);
-              setSelectedDetail('');
-            }}
-          >
-            <Text style={{ color: item === selectedType ? '#fff' : '#333' }}>{item}</Text>
-          </TouchableOpacity>
-        )}
-        keyExtractor={(item) => item}
-        style={{ marginBottom: 10 }}
-      />
-
-      <Text style={styles.label}>Incidente</Text>
-      <FlatList
-        data={incidentDetails[selectedType] || []}
-        horizontal
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.chip,
-              item === selectedDetail && { backgroundColor: colors.primaryBlue },
-            ]}
-            onPress={() => setSelectedDetail(item)}
-          >
-            <Text style={{ color: item === selectedDetail ? '#fff' : '#333' }}>{item}</Text>
-          </TouchableOpacity>
-        )}
-        keyExtractor={(item) => item}
-        style={{ marginBottom: 10 }}
-      />
-
-      <TouchableOpacity
-        style={styles.mapButton}
-        onPress={() => navigation.navigate('SelectLocationScreen')}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+    >
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ flexGrow: 1, padding: 16, backgroundColor: '#F7EFDF' }}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Seleccionar ubicación en el mapa</Text>
-      </TouchableOpacity>
+        {/* Tipo de incidente */}
+        <TouchableOpacity
+          style={styles.mainButton}
+          onPress={() => setShowCategories(!showCategories)}
+        >
+          <Text style={styles.mainButtonText}>Tipo de incidente</Text>
+        </TouchableOpacity>
 
-      <Text style={styles.label}>Descripción</Text>
-      <TextInput
-        multiline
-        numberOfLines={4}
-        value={description}
-        onChangeText={setDescription}
-        style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
-        placeholder="Describe el incidente..."
-      />
-
-      <Text style={styles.label}>Fotos</Text>
-      <View style={styles.imageGrid}>
-        <FlatList
-          data={[...images, 'add']}
-          numColumns={3}
-          renderItem={({ item }) =>
-            item === 'add' ? (
+        {showCategories && (
+          <View style={styles.categoryBox}>
+            {Object.keys(incidentTypes).map((category) => (
               <TouchableOpacity
-                onPress={() => setShowModal(true)}
-                style={[styles.thumbnail, styles.addPhotoBox]}
+                key={category}
+                style={[
+                  styles.categoryButton,
+                  selectedCategory === category && styles.selectedCategory,
+                ]}
+                onPress={() => handleCategorySelect(category)}
               >
-                <Text style={{ fontSize: 24, color: '#777' }}>＋</Text>
+                <Text style={styles.categoryText}>{category}</Text>
               </TouchableOpacity>
-            ) : (
-              renderImage({ item })
-            )
-          }
-          keyExtractor={(item, index) => item + index}
-        />
-      </View>
+            ))}
+          </View>
+        )}
 
-      <Button title="Enviar incidente" onPress={() => console.log('Incidente enviado')} />
+        {selectedCategory && (
+          <View style={styles.subcategoryBox}>
+            {incidentTypes[selectedCategory].map((sub, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.subcategoryButton,
+                  selectedSubcategory === sub && styles.selectedSubcategory,
+                ]}
+                onPress={() => handleSubcategorySelect(sub)}
+              >
+                <Text style={styles.subcategoryText}>{sub}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Descripción */}
+        <Text style={styles.label}>Descripción del incidente:</Text>
+        <TextInput
+          ref={inputRef}
+          style={{ borderWidth: 1, padding: 10, minHeight: 80, backgroundColor: '#fff' }}
+          placeholder="Escribe una descripción..."
+          multiline
+          onFocus={() => {
+            setTimeout(() => {
+              inputRef.current?.measure((fx, fy, width, height, px, py) => {
+                scrollRef.current?.scrollTo({
+                  y: py - 100, // Ajusta este valor según el tamaño del teclado
+                  animated: true,
+                });
+              });
+            }, 300); // Espera a que el teclado se abra
+          }}
+        />
+
+        {/* Mapa */}
+        <TouchableOpacity style={styles.mapButton} onPress={handleOpenMap}>
+          <Text style={styles.mapButtonText}>Seleccionar ubicación en el mapa</Text>
+        </TouchableOpacity>
+
+        {/* Fotos */}
+        <Text style={styles.label}>Fotos</Text>
+        <View style={styles.imageGrid}>
+          <FlatList
+            data={[...images, 'add']}
+            numColumns={3}
+            scrollEnabled={false}
+            renderItem={({ item }) =>
+              item === 'add' ? (
+                <TouchableOpacity
+                  onPress={() => setShowModal(true)}
+                  style={[styles.thumbnail, styles.addPhotoBox]}
+                >
+                  <Text style={{ fontSize: 24, color: '#777' }}>＋</Text>
+                </TouchableOpacity>
+              ) : (
+                renderImage({ item })
+              )
+            }
+            keyExtractor={(item, index) => item + index}
+          />
+        </View>
+
+        {/* Botón enviar */}
+        <TouchableOpacity style={styles.sendButton} onPress={handleSubmit}>
+          <Text style={styles.sendButtonText}>Enviar incidente</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       {/* Modal de selección de fuente */}
       <Modal visible={showModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
+          {/* Fondo para cerrar modal */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowModal(false)}
+          />
+          {/* Caja centrada */}
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Selecciona fuente</Text>
-            {['camera', 'gallery', 'esp32'].map((option) => (
+            {[
+              { key: 'camera', label: 'Tomar foto con cámara', icon: 'camera' },
+              { key: 'gallery', label: 'Elegir de galería', icon: 'images' },
+              { key: 'esp32', label: 'Obtener foto de ESP32', icon: 'satellite-dish' },
+            ].map(({ key, label, icon }) => (
               <TouchableOpacity
-                key={option}
-                onPress={() => handleAddImage(option)}
+                key={key}
+                onPress={() => {
+                  handleAddImage(key);
+                }}
                 style={styles.modalOption}
               >
-                <Text>
-                  {option === 'camera'
-                    ? '📷 Tomar foto con cámara'
-                    : option === 'gallery'
-                    ? '🖼️ Elegir de galería'
-                    : '📡 Obtener foto de ESP32'}
-                </Text>
+                <View style={styles.iconRow}>
+                  <FontAwesome5 name={icon} size={18} color="#333" style={{ marginRight: 10 }} />
+                  <Text>{label}</Text>
+                </View>
               </TouchableOpacity>
             ))}
             <TouchableOpacity onPress={() => setShowModal(false)}>
@@ -177,90 +270,192 @@ export default function ReportIncidentScreen() {
 
       {/* Modal de imagen completa */}
       <Modal visible={!!fullImage} transparent animationType="fade">
-        <TouchableOpacity style={styles.fullImageOverlay} onPress={() => setFullImage(null)}>
+        <View style={styles.fullImageOverlay}>
           <Image source={{ uri: fullImage }} style={styles.fullImage} resizeMode="contain" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => {
+              setImages((prev) => prev.filter((img) => img !== fullImage));
+              setFullImage(null);
+            }}
+          >
+            <Text style={styles.deleteButtonText}>Eliminar foto</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => setFullImage(null)}
+          >
+            <Text style={styles.closeButtonText}>Cerrar</Text>
+          </TouchableOpacity>
+        </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  label: { fontWeight: 'bold', marginBottom: 4, marginTop: 16 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
+  container: { padding: 16, backgroundColor: '#fff' },
+  mainButton: {
+    backgroundColor: '#007bff',
+    paddingVertical: 14,
     borderRadius: 8,
-    padding: 10,
+    marginBottom: 12,
+  },
+  mainButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  categoryBox: { marginBottom: 16 },
+  categoryButton: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 12,
+    borderRadius: 6,
     marginBottom: 8,
   },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#eee',
-    borderRadius: 20,
-    marginRight: 8,
+  selectedCategory: { backgroundColor: '#d0e8ff' },
+  categoryText: {
+    textAlign: 'center',
+    fontWeight: '600',
+    color: '#333',
+  },
+  subcategoryBox: { marginBottom: 16 },
+  subcategoryButton: {
+    backgroundColor: '#eaeaea',
+    paddingVertical: 10,
+    borderRadius: 6,
+    marginBottom: 6,
+  },
+  selectedSubcategory: { backgroundColor: '#cce5ff' },
+  subcategoryText: {
+    textAlign: 'center',
+    color: '#555',
+  },
+  label: {
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
+    fontSize: 16,
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 10,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   mapButton: {
-    backgroundColor: colors.primaryBlue,
-    padding: 12,
+    backgroundColor: '#6c757d',
+    paddingVertical: 12,
     borderRadius: 8,
-    marginBottom: 10,
-    alignItems: 'center',
+    marginBottom: 16,
   },
-  imageGrid: { marginVertical: 10 },
+  mapButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  imageGrid: {
+    marginBottom: 16,
+  },
   thumbnail: {
-    width: 90,
-    height: 90,
-    borderRadius: 8,
+    width: 100,
+    height: 100,
     margin: 4,
-  },
-  addPhotoBox: {
+    borderRadius: 8,
+    overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ddd',
   },
-  imageWrapper: {
-    position: 'relative',
-    margin: 4,
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
   },
-  closeIcon: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: '#000',
-    borderRadius: 10,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    zIndex: 10,
+  addPhotoBox: {
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sendButton: {
+    backgroundColor: '#28a745',
+    paddingVertical: 14,
+    borderRadius: 8,
+  },
+  sendButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: '#00000099',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalBox: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
     width: '80%',
-    elevation: 5,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 20,
+    alignItems: 'center',
+    zIndex: 2,
   },
-  modalTitle: { fontWeight: 'bold', fontSize: 16, marginBottom: 12 },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
   modalOption: {
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
+    paddingHorizontal: 20,
+    borderRadius: 6,
+    backgroundColor: '#f0f0f0',
+    marginBottom: 10,
+    width: '100%',
+    alignItems: 'center',
   },
-    fullImageOverlay: {
+  fullImageOverlay: {
     flex: 1,
-    backgroundColor: '#000000dd',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   fullImage: {
-    width: '100%',
-    height: '100%',
+    width: '90%',
+    height: '70%',
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  deleteButton: {
+    backgroundColor: '#dc3545',
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  closeButton: {
+    backgroundColor: '#6c757d',
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 8,
+  },
+  closeButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });
+
+export default IncidentScreen;

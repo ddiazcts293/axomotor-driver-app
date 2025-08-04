@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome } from '@expo/vector-icons';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../services/supabase_client';
 import { globalStyles } from '../style/styles';
 import { colors } from '../style/theme';
 
@@ -18,7 +18,7 @@ export default function HomeScreen() {
 
   return (
     <View style={globalStyles.container}>
-      {/* 🔵 Header flotante */}
+      {/* Header flotante */}
       <View style={{
         position: 'absolute',
         top: 0,
@@ -40,18 +40,19 @@ export default function HomeScreen() {
             Hola de nuevo, Luis
           </Text>
         </View>
-        <TouchableOpacity onPress={handleLogout}>
-          <FontAwesome name="sign-out" size={24} color={colors.secondaryWhite} />
+        <TouchableOpacity onPress={() => navigation.navigate('Driver')}>
+          <FontAwesome name="cog" size={24} color={colors.secondaryWhite} />
         </TouchableOpacity>
       </View>
 
-      {/* 🔽 Scroll con margen superior para no tapar contenido */}
+      {/* Scroll con margen superior para no tapar contenido */}
       <ScrollView contentContainerStyle={{ paddingTop: 80, paddingVertical: 20 }}>
-        {/* 🔴 Botón de pánico */}
+        {/* Botón de pánico */}
         <TouchableOpacity
           style={{
             backgroundColor: '#D32F2F',
             padding: 16,
+            marginTop: 15,
             marginHorizontal: 20,
             borderRadius: 8,
             marginBottom: 24,
@@ -67,16 +68,15 @@ export default function HomeScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* 🧮 Sección de botones */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around' }}>
+        {/* Sección de botones */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', marginTop: 25 }}>
           {[
             { title: 'Enlazar dispositivo', icon: 'link' },
-            { title: 'Incidencias reportadas', icon: 'file-text' },
+            { title: 'Incidencias', icon: 'file-text' },
             { title: 'Reportar incidencia', icon: 'pencil-square-o' },
             { title: 'Galería de incidentes', icon: 'photo' },
             { title: 'Números de emergencia', icon: 'phone' },
             { title: 'Viajes', icon: 'truck' },
-            { title: 'Ajustes de conductor', icon: 'cog' },
             ].map((item, index) => (
             <TouchableOpacity
                 key={index}
@@ -91,15 +91,13 @@ export default function HomeScreen() {
                 }}
                 onPress={() => {
                     if (item.title === 'Reportar incidencia') {
-                        navigation.navigate('RegisterIncident');
-                    } else if (item.title === 'Incidencias reportadas') {
-                        navigation.navigate('ReportedIncidents');
+                        navigation.navigate('ReportIncident');
+                    } else if (item.title === 'Incidencias') {
+                        navigation.navigate('Incidents');
                     } else if (item.title === 'Galería de incidentes') {
                         navigation.navigate('IncidentGallery');
                     } else if (item.title === 'Viajes') {
                         navigation.navigate('Viaje');
-                    } else if (item.title === 'Ajustes de conductor') {
-                        navigation.navigate('Driver');
                     } else {
                         console.log(item.title);
                     }
