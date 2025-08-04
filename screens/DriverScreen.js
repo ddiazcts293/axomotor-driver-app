@@ -1,15 +1,9 @@
 import { FontAwesome } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
 import {
-  Modal,
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
-  Alert,
+  Modal, View, Text, StyleSheet, Image, TouchableOpacity,
+  ScrollView, TextInput, Alert, KeyboardAvoidingView,
+  TouchableWithoutFeedback, Keyboard, Platform
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../services/supabase_client';
@@ -19,7 +13,7 @@ const DriverScreen = () => {
   const navigation = useNavigation();
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalType, setModalType] = useState(null); // 'email' | 'password'
+  const [modalType, setModalType] = useState(null);
   const [inputValue, setInputValue] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('https://i.pravatar.cc/150?u=juan');
   const [userData, setUserData] = useState({
@@ -88,7 +82,6 @@ const DriverScreen = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
-
       if (error || !session?.user) {
         console.error('No se pudo obtener la sesión:', error?.message);
         return;
@@ -118,17 +111,94 @@ const DriverScreen = () => {
     fetchUserData();
   }, []);
 
-  const InputModal = ({
-    visible,
-    title,
-    onCancel,
-    onSubmit,
-    modalType,
-  }) => (
-    <Modal visible={visible} transparent animationType="fade">
-      <View style={{
-        flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)'
-      }}>
+  const handleImagePick = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      alert('Se requiere permiso para acceder a la galería');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length > 0) {
+      const selectedUri = result.assets[0].uri;
+      setAvatarUrl(selectedUri);
+    }
+  };
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error al cerrar sesión:', error.message);
+      return;
+    }
+  };
+
+  return (
+    <>
+      <ScrollView style={styles.container}>
+        <View style={styles.profileSection}>
+          <TouchableOpacity onPress={handleImagePick}>
+            <Image
+              source={{ uri: avatarUrl }}
+              style={styles.avatar}
+              onError={(e) => console.log('Error al cargar imagen:', e.nativeEvent.error)}
+            />
+          </TouchableOpacity>
+          <Text style={styles.name}>{userData.name}</Text>
+          <Text style={styles.email}>Correo: {userData.email}</Text>
+          <Text style={styles.registered}>
+            Registro: {new Date(userData.registeredAt).toLocaleDateString()}
+          </Text>
+        </View>
+
+        <View style={styles.actions}>
+          <SettingsButton label="Cambiar correo" icon="envelope" onPress={handleChangeEmail} />
+          <SettingsButton label="Cambiar contraseña" icon="lock" onPress={handleChangePassword} />
+          <SettingsButton label="Cerrar sesión" icon="sign-out" onPress={handleLogout} gray />
+        </View>
+      </ScrollView>
+
+      <InputModal
+        visible={modalVisible}
+        title={modalType === 'email' ? 'Cambiar correo' : 'Cambiar contraseña'}
+        onCancel={() => setModalVisible(false)}
+        onSubmit={handleModalSubmit}
+        modalType={modalType}
+        inputValue={inputValue}
+        setInputValue={setInputValue}
+        currentPassword={currentPassword}
+        newPassword={newPassword}
+        confirmPassword={confirmPassword}
+        setCurrentPassword={setCurrentPassword}
+        setNewPassword={setNewPassword}
+        setConfirmPassword={setConfirmPassword}
+      />
+    </>
+  );
+};
+
+const InputModal = ({
+  visible, title, onCancel, onSubmit, modalType,
+  inputValue, setInputValue, currentPassword,
+  newPassword, confirmPassword, setCurrentPassword,
+  setNewPassword, setConfirmPassword
+}) => (
+  <Modal visible={visible} transparent animationType="fade">
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: 'rgba(0,0,0,0.4)',
+        }}
+      >
         <View style={{
           backgroundColor: '#fff', padding: 24, borderRadius: 10, width: '80%'
         }}>
@@ -177,73 +247,10 @@ const DriverScreen = () => {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </Modal>
-  );
-
-  const handleImagePick = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permissionResult.granted) {
-      alert('Se requiere permiso para acceder a la galería');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const selectedUri = result.assets[0].uri;
-      console.log('Imagen seleccionada:', selectedUri);
-      setAvatarUrl(selectedUri);
-    }
-  };
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Error al cerrar sesión:', error.message);
-      return;
-    }
-  };
-
-  return (
-    <>
-      <ScrollView style={styles.container}>
-        <View style={styles.profileSection}>
-          <TouchableOpacity onPress={handleImagePick}>
-            <Image
-              source={{ uri: avatarUrl }}
-              style={styles.avatar}
-              onError={(e) => console.log('Error al cargar imagen:', e.nativeEvent.error)}
-            />
-          </TouchableOpacity>
-          <Text style={styles.name}>{userData.name}</Text>
-          <Text style={styles.email}>Correo: {userData.email}</Text>
-          <Text style={styles.registered}>
-            Registro: {new Date(userData.registeredAt).toLocaleDateString()}
-          </Text>
-        </View>
-
-        <View style={styles.actions}>
-          <SettingsButton label="Cambiar correo" icon="envelope" onPress={handleChangeEmail} />
-          <SettingsButton label="Cambiar contraseña" icon="lock" onPress={handleChangePassword} />
-          <SettingsButton label="Cerrar sesión" icon="sign-out" onPress={handleLogout} gray />
-        </View>
-      </ScrollView>
-
-      <InputModal
-        visible={modalVisible}
-        title={modalType === 'email' ? 'Cambiar correo' : 'Cambiar contraseña'}
-        onCancel={() => setModalVisible(false)}
-        onSubmit={handleModalSubmit}
-        modalType={modalType}
-      />
-    </>
-  );
-};
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
+  </Modal>
+);
 
 const SettingsButton = ({ label, onPress, icon, gray = false }) => (
   <TouchableOpacity
@@ -292,28 +299,24 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   button: {
-  backgroundColor: '#0091EA',
-  paddingVertical: 14,
-  borderRadius: 8,
-  marginBottom: 12,
-  alignItems: 'center',
+    backgroundColor: '#0091EA',
+    paddingVertical: 14,
+    borderRadius: 8,
+    marginBottom: 12,
+    alignItems: 'center',
   },
-  grayButton: {
-    backgroundColor: '#f0f0f0',
-  },
+  grayButton: { backgroundColor: '#f0f0f0' },
   buttonContent: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonText: {
     color: '#fff',
     fontWeight: '600',
     textAlign: 'center',
   },
-  grayText: {
-    color: '#333',
-  },
+  grayText: { color: '#333' },
   input: {
     height: 40,
     borderColor: '#ccc',
