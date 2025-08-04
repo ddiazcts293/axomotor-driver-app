@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome } from '@expo/vector-icons';
@@ -8,6 +8,38 @@ import { colors } from '../style/theme';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    const fetchUserName = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session?.user) {
+          console.error('Error obteniendo sesión:', sessionError?.message);
+          return;
+        }
+
+        const userId = session.user.id;
+
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('name')
+          .eq('id', userId)
+          .single();
+
+        if (profileError) {
+          console.error('Error obteniendo perfil:', profileError.message);
+          return;
+        }
+
+        setUserName(data.name);
+      } catch (error) {
+        console.error('Error general al obtener usuario:', error);
+      }
+    };
+
+    fetchUserName();
+  }, []);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -37,7 +69,7 @@ export default function HomeScreen() {
             style={{ width: 40, height: 40, marginRight: 12 }}
           />
           <Text style={{ color: colors.secondaryWhite, fontSize: 18 }}>
-            Hola de nuevo, Luis
+            Hola de nuevo, {userName || 'Usuario'}
           </Text>
         </View>
         <TouchableOpacity onPress={() => navigation.navigate('Driver')}>
@@ -77,10 +109,10 @@ export default function HomeScreen() {
             { title: 'Galería de incidentes', icon: 'photo' },
             { title: 'Números de emergencia', icon: 'phone' },
             { title: 'Viajes', icon: 'truck' },
-            ].map((item, index) => (
+          ].map((item, index) => (
             <TouchableOpacity
-                key={index}
-                style={{
+              key={index}
+              style={{
                 backgroundColor: colors.primaryBlue,
                 width: '40%',
                 marginVertical: 10,
@@ -88,27 +120,27 @@ export default function HomeScreen() {
                 borderRadius: 12,
                 alignItems: 'center',
                 elevation: 3,
-                }}
-                onPress={() => {
-                    if (item.title === 'Reportar incidencia') {
-                        navigation.navigate('ReportIncident');
-                    } else if (item.title === 'Incidencias') {
-                        navigation.navigate('Incidents');
-                    } else if (item.title === 'Galería de incidentes') {
-                        navigation.navigate('IncidentGallery');
-                    } else if (item.title === 'Viajes') {
-                        navigation.navigate('Viaje');
-                    } else {
-                        console.log(item.title);
-                    }
-                }}
+              }}
+              onPress={() => {
+                if (item.title === 'Reportar incidencia') {
+                  navigation.navigate('ReportIncident');
+                } else if (item.title === 'Incidencias') {
+                  navigation.navigate('Incidents');
+                } else if (item.title === 'Galería de incidentes') {
+                  navigation.navigate('IncidentGallery');
+                } else if (item.title === 'Viajes') {
+                  navigation.navigate('Viaje');
+                } else {
+                  console.log(item.title);
+                }
+              }}
             >
-                <FontAwesome name={item.icon} size={24} color="#fff" style={{ marginBottom: 8 }} />
-                <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>
+              <FontAwesome name={item.icon} size={24} color="#fff" style={{ marginBottom: 8 }} />
+              <Text style={{ color: '#fff', textAlign: 'center', fontWeight: 'bold' }}>
                 {item.title}
-                </Text>
+              </Text>
             </TouchableOpacity>
-            ))}
+          ))}
         </View>
       </ScrollView>
     </View>
