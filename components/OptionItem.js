@@ -1,6 +1,4 @@
-
-import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
+import { Text, Image, TouchableOpacity } from 'react-native';
 import { colors } from '../style/theme';
 
 export default function OptionItem({ title, icon, onPress }) {

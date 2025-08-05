@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, FlatLi
 import { FontAwesome5 } from '@expo/vector-icons';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '../services/supabase_client';
+import { supabase } from '../services/supabase';
 import * as FileSystem from 'expo-file-system';
 import mime from 'mime';
 import * as ImageManipulator from 'expo-image-manipulator';

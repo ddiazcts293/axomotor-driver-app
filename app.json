@@ -38,15 +38,10 @@
         "notificationColor": "#0000FF"
       },
       "useNextNotificationsApi": true,
-      "package": "com.eldorito.axomotordriverapp"
+      "package": "com.axolutions.axomotor_driver_app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "873a1841-9e27-48f0-81ae-37527d9cf3ed"
-      }
     }
   }
 }

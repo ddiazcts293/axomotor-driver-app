@@ -1,61 +1,57 @@
-import { FontAwesome } from '@expo/vector-icons';
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal, View, Text, StyleSheet, Image, TouchableOpacity,
   ScrollView, TextInput, Alert, KeyboardAvoidingView,
   TouchableWithoutFeedback, Keyboard, Platform
 } from 'react-native';
+
+import { FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { supabase } from '../services/supabase_client';
-import { useNavigation } from '@react-navigation/native';
+import { auth, supabase } from '../services/supabase';
 
-const DriverScreen = () => {
-  const navigation = useNavigation();
+export default function DriverScreen() {
+  // controlan los modales
+  const [ modalVisible, setModalVisible ] = useState(false);
+  const [ modalType, setModalType ] = useState(null);
+  const [ avatarUrl, setAvatarUrl ] = useState('https://i.pravatar.cc/150?u=juan');
+  const [ userData, setUserData ] = useState({ name: '', email: '', registeredAt: '' });
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalType, setModalType] = useState(null);
-  const [inputValue, setInputValue] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('https://i.pravatar.cc/150?u=juan');
-  const [userData, setUserData] = useState({
-    name: '',
-    email: '',
-    registeredAt: '',
-  });
-
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  // datos de entrada de los modales
+  const [ newEmail, setNewEmail  ] = useState('');
+  const [ newPassword, setNewPassword ] = useState('');
+  const [ confirmPassword, setConfirmPassword ] = useState('');
 
   const handleChangeEmail = () => {
     setModalType('email');
-    setInputValue(userData.email);
+    setNewEmail('');
     setModalVisible(true);
   };
 
   const handleChangePassword = () => {
     setModalType('password');
-    setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setModalVisible(true);
   };
 
   const handleModalSubmit = async () => {
+    // verifica si lo que se actualizó fue el correo electrónico
     if (modalType === 'email') {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(inputValue)) {
+      if (!emailRegex.test(newEmail)) {
         Alert.alert('Error', 'Introduce un correo electrónico válido.');
         return;
       }
-      const { error } = await supabase.auth.updateUser({ email: inputValue });
+
+      const { error } = await auth.updateUser({ email: newEmail });
       if (error) {
         Alert.alert('Error', error.message);
       } else {
-        setUserData((prev) => ({ ...prev, email: inputValue }));
+        setUserData((prev) => ({ ...prev, email: newEmail }));
         Alert.alert('Éxito', 'Correo actualizado. Revisa tu bandeja para confirmar el cambio.');
       }
     } else if (modalType === 'password') {
-      if (!currentPassword || !newPassword || !confirmPassword) {
+      if (!newPassword || !confirmPassword) {
         Alert.alert('Error', 'Completa todos los campos.');
         return;
       }
@@ -68,7 +64,7 @@ const DriverScreen = () => {
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error } = await auth.updateUser({ password: newPassword });
       if (error) {
         Alert.alert('Error', error.message);
       } else {
@@ -79,9 +75,16 @@ const DriverScreen = () => {
     setModalVisible(false);
   };
 
+  const handleModalCancel = () => {
+    setNewEmail('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setModalVisible(false);
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const { data: { session }, error } = await auth.getSession();
       if (error || !session?.user) {
         console.error('No se pudo obtener la sesión:', error?.message);
         return;
@@ -89,6 +92,8 @@ const DriverScreen = () => {
 
       const userId = session.user.id;
       const email = session.user.email;
+      let name = undefined;
+      let created_at = undefined;
 
       const { data, error: profileError } = await supabase
         .from('profiles')
@@ -97,14 +102,16 @@ const DriverScreen = () => {
         .single();
 
       if (profileError) {
-        console.error('Error al obtener perfil:', profileError.message);
-        return;
+        console.warn('Error al obtener perfil:', profileError.message);
+      } else {
+        name = data.name;
+        created_at = data.created_at;
       }
 
       setUserData({
-        name: data.name,
+        name: name,
         email,
-        registeredAt: data.created_at,
+        registeredAt: created_at,
       });
     };
 
@@ -132,14 +139,49 @@ const DriverScreen = () => {
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Error al cerrar sesión:', error.message);
-      return;
-    }
   };
+
+  /* Modales */
+  
+  const renderChangeEmailModal = () => (
+    <>
+      <Text style={modalStyles.title}>Cambiar correo electrónico</Text>
+      <TextInput
+        style={modalStyles.input}
+        placeholder="Nuevo correo electrónico"
+        keyboardType='email-address'
+        autoCapitalize="none"
+        value={newEmail}
+        onChangeText={setNewEmail}
+      />
+    </>
+  );
+
+  const renderChangePasswordModal = () => (
+    <>
+      <Text style={modalStyles.title}>Cambiar contraseña</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="Nueva contraseña"
+        autoCapitalize='none'
+        value={newPassword}
+        secureTextEntry
+        onChangeText={setNewPassword}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Confirmar contraseña"
+        autoCapitalize='none'
+        value={confirmPassword}
+        secureTextEntry
+        onChangeText={setConfirmPassword}
+      />
+    </>
+  );
 
   return (
     <>
+      {/* Contenido de la página */}
       <ScrollView style={styles.container}>
         <View style={styles.profileSection}>
           <TouchableOpacity onPress={handleImagePick}>
@@ -162,95 +204,68 @@ const DriverScreen = () => {
           <SettingsButton label="Cerrar sesión" icon="sign-out" onPress={handleLogout} gray />
         </View>
       </ScrollView>
-
-      <InputModal
-        visible={modalVisible}
-        title={modalType === 'email' ? 'Cambiar correo' : 'Cambiar contraseña'}
-        onCancel={() => setModalVisible(false)}
-        onSubmit={handleModalSubmit}
-        modalType={modalType}
-        inputValue={inputValue}
-        setInputValue={setInputValue}
-        currentPassword={currentPassword}
-        newPassword={newPassword}
-        confirmPassword={confirmPassword}
-        setCurrentPassword={setCurrentPassword}
-        setNewPassword={setNewPassword}
-        setConfirmPassword={setConfirmPassword}
-      />
+      {/* Modal */}
+      <Modal visible={modalVisible} transparent animationType='fade' onRequestClose={handleModalCancel}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined } style={modalStyles.container}>
+            <View style={modalStyles.content}>
+              {/* Carga el contenido del modal de acuerdo a la selección */}
+              { modalType === 'email' ? (renderChangeEmailModal()) : (renderChangePasswordModal()) }
+              <View style={modalStyles.buttons}>
+                <TouchableOpacity onPress={handleModalCancel} style={modalStyles.cancelButton}>
+                  <Text style={modalStyles.cancelButton}>Cancerlar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleModalSubmit} style={modalStyles.submitButton}>
+                  <Text style={modalStyles.submitButton}>Aceptar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </TouchableWithoutFeedback>
+      </Modal>
     </>
-  );
+);
 };
 
-const InputModal = ({
-  visible, title, onCancel, onSubmit, modalType,
-  inputValue, setInputValue, currentPassword,
-  newPassword, confirmPassword, setCurrentPassword,
-  setNewPassword, setConfirmPassword
-}) => (
-  <Modal visible={visible} transparent animationType="fade">
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: 'rgba(0,0,0,0.4)',
-        }}
-      >
-        <View style={{
-          backgroundColor: '#fff', padding: 24, borderRadius: 10, width: '80%'
-        }}>
-          <Text style={{ fontWeight: 'bold', fontSize: 18, marginBottom: 12 }}>{title}</Text>
-
-          {modalType === 'password' ? (
-            <>
-              <TextInput
-                placeholder="Contraseña actual"
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                secureTextEntry
-                style={styles.input}
-              />
-              <TextInput
-                placeholder="Nueva contraseña"
-                value={newPassword}
-                onChangeText={setNewPassword}
-                secureTextEntry
-                style={styles.input}
-              />
-              <TextInput
-                placeholder="Confirmar contraseña"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                style={styles.input}
-              />
-            </>
-          ) : (
-            <TextInput
-              placeholder="Nuevo correo electrónico"
-              value={inputValue}
-              onChangeText={setInputValue}
-              autoCapitalize="none"
-              style={styles.input}
-            />
-          )}
-
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-            <TouchableOpacity onPress={onCancel} style={{ marginRight: 16 }}>
-              <Text style={{ color: '#007bff' }}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onSubmit}>
-              <Text style={{ color: '#007bff', fontWeight: 'bold' }}>Aceptar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
-  </Modal>
-);
+const modalStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  content: {
+    backgroundColor: '#fff', 
+    padding: 24, 
+    borderRadius: 10, 
+    width: '80%'
+  },
+  title: {
+    fontWeight: 'bold', 
+    fontSize: 18, 
+    marginBottom: 12
+  },
+  input: {
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+  },
+  buttons: {
+    flexDirection: 'row', 
+    justifyContent: 'flex-end',
+    columnGap: 12
+  },
+  cancelButton: {
+    color: '#007bff'
+  },
+  submitButton: {
+    color: '#007bff',
+    fontWeight: 'bold'
+  }
+});
 
 const SettingsButton = ({ label, onPress, icon, gray = false }) => (
   <TouchableOpacity
@@ -326,5 +341,3 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 });
-
-export default DriverScreen;

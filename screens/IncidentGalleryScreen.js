@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from 'react-native';
-import { supabase } from '../services/supabase_client';
+import { supabase } from '../services/supabase';
 
 export default function IncidentGalleryScreen() {
   const [images, setImages] = useState([]);
