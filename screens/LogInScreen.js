@@ -1,73 +1,64 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, Image, StatusBar, Alert, KeyboardAvoidingView, TouchableOpacity } from "react-native";
-import { useNavigation } from "@react-navigation/native";
-import { auth } from '../services/auth'
-import { styles } from "../style/styles";
+import React, { useState } from 'react';
+import { View, TextInput, Text, TouchableOpacity, Image } from 'react-native';
+import { globalStyles } from '../style/styles';
+import { colors } from '../style/theme';
+import { supabase } from '../services/supabase_client';
 
 export default function LogInScreen() {
-  // obtiene el hook de navegación
-  const navigation = useNavigation();
-  // declara las variables y los métodos para establecerlas
-  const [ email, setEmail ] = useState('');
-  const [ password, setPassword ] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  // función que maneja cuando se debe iniciar sesión
-  const handleLogIn = async () => {
-    const { data, error } = await auth.signInWithPassword({
-      email,
-      password,
-    });
+  // ✅ Lógica de autenticación
+  const handleLogin = async () => {
+    if (!email || !password) {
+      alert('Por favor ingresa tu correo y contraseña');
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      Alert.alert('Error', error.message);
+      alert('Correo o contraseña incorrectos');
     } else {
-      navigation.navigate('home', { user: data.user });
+      alert('¡Inicio de sesión exitoso!');
+      // 👉 Aquí puedes hacer la navegación, por ejemplo:
+      // navigation.navigate('Home');
     }
   };
 
   return (
-    <KeyboardAvoidingView>
-      <StatusBar backgroundColor="#0284C7" barStyle="light-content" />
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Iniciar sesión</Text>
-      </View>
-
-      <View style={styles.logoContainer}>
-        <Image
-          source= { require('../assets/banner-horizontal.svg')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.logoTitle}>Bienvenido a AxoMotor</Text>
-      </View>
-
-      <View style={styles.form}>
-        <Text style={styles.label}>Usuario</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="user@email.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <Text style={styles.label}>Contraseña</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="password"
-          autoCapitalize="none"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-        <TouchableOpacity style={styles.button} onPress={handleLogIn}>
-          <Image
-            source={{ uri: 'https://img.icons8.com/ios-filled/50/ffffff/user.png' }}
-            style={styles.buttonIcon}
-          />
-          <Text style={styles.buttonText}>Iniciar sesión</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+    <View style={globalStyles.container}>
+      <Image
+        source={require('../assets/AxoMotor.png')}
+        style={{
+          width: 200,
+          height: 200,
+          alignSelf: 'center',
+          marginBottom: 20,
+            marginTop: 70,
+          resizeMode: 'contain',
+        }}
+      />
+      <TextInput
+        style={globalStyles.input}
+        placeholder="Correo electrónico"
+        placeholderTextColor={colors.secondaryGray}
+        onChangeText={setEmail}
+        value={email}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      <TextInput
+        style={globalStyles.input}
+        placeholder="Contraseña"
+        placeholderTextColor={colors.secondaryGray}
+        secureTextEntry
+        onChangeText={setPassword}
+        value={password}
+      />
+      <TouchableOpacity style={globalStyles.buttonPrimary} onPress={handleLogin}>
+        <Text style={globalStyles.buttonText}>Iniciar Sesión</Text>
+      </TouchableOpacity>
+    </View>
   );
 }

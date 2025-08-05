@@ -13,17 +13,40 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "location"
+        ],
+        "NSLocationWhenInUseUsageDescription": "Se necesita tu ubicación para enviar datos al servidor.",
+        "NSLocationAlwaysUsageDescription": "Se necesita tu ubicación para enviar datos al servidor incluso en segundo plano."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ],
+      "foregroundService": {
+        "notificationTitle": "AxoMotor está rastreando tu ubicación",
+        "notificationBody": "Tu ubicación se envía en segundo plano.",
+        "notificationColor": "#0000FF"
+      },
+      "useNextNotificationsApi": true,
+      "package": "com.eldorito.axomotordriverapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "873a1841-9e27-48f0-81ae-37527d9cf3ed"
+      }
     }
   }
 }

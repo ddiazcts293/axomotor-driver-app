@@ -1,9 +1,11 @@
+// /style/theme.js
 export const colors = {
-    bg: '#F7EFDF', // color de fondo
-    fg: '#333333', // color de texto
-    primary: '',
-    secondary: '',
-    controls: {
-        border: '#BDBDBD',
-    }
-}
+  primaryBlue: '#0091EA',
+  primaryBeige: '#F6EEE6',
+  primaryCream: '#F7EFDF',
+  primaryDark: '#333',
+
+  secondaryGray: '#BDBDBD',
+  secondaryBlueGray: '#B0BEC5',
+  secondaryWhite: '#fff',
+};
