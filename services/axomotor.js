@@ -1,4 +1,5 @@
 import { axomotorApiUrl } from '../secrets'
+import { auth } from './supabase'
 
 const defaultHeaders = {
     'Content-Type': 'application/json'
@@ -6,21 +7,29 @@ const defaultHeaders = {
 
 async function get(endpoint, options = {}) {
   const url = `${axomotorApiUrl}/${endpoint}`;
-  console.log(`Making request to ${url}`);
+  console.log(`Making request to ${url}`, options);
+
+  const token = await auth.getSession().then(res => res.data.session?.access_token);
+  const authHeader = {
+    'Authorization': `Bearer ${token}`
+  };
 
   try {
     const response = await fetch(url, {
       ...options,
       headers: {
         ...defaultHeaders,
+        ...authHeader,
         ...(options.headers || {})
       }
     });
 
+    console.log(response);
+
     const content = await response.json();
     console.log('Response content:', content); // Para propósitos de depuración
 
-    // Verifica si el contenido e sun arreglo directamente
+    // Verifica si el contenido es un arreglo directamente
     if (Array.isArray(content)) {
       return content;
     }
@@ -99,20 +108,19 @@ async function put(endpoint, data = {}, options = {}) {
   }
 }
 
-
-
-
 const AxoMotorAPI = {
     // Realizar una vez funcione el llamado a la API para esta función
     async getMe() {
-        return get("userAccounts/me");
+        return await get("userAccounts/me");
     },
 
     async getCurrentTrip(driverId) {
-        if (!driverId || driverId === "") {
+      console.log(driverId);
+        if (driverId === null) {
             throw new Error("Se requiere un ID del conductor para solicitar el viaje actual.");
         }
-        return get(`trips/pending/${driverId}`);
+        
+        return await get(`trips/pending/${driverId}`);
     },
 
 

@@ -90,15 +90,15 @@ export default function HomeScreen() {
             <Text style={styles.buttonText}>Incidencias reportadas</Text>
           </TouchableOpacity>
           {/* Butón para ver galería de fotos subidas */}
-          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('gallery')}>
+          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('incident_gallery')}>
             <FontAwesome name="photo" size={24} color="#fff" style={{ marginBottom: 8 }} />
             <Text style={styles.buttonText}>Fotos subidas</Text>
           </TouchableOpacity>
-          {/* Butón para ir a pantalla de números de emergencia */}
+          {/* Butón para ir a pantalla de números de emergencia 
           <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('emergency_numbers')}>
             <FontAwesome name="phone" size={24} color="#fff" style={{ marginBottom: 8 }} />
             <Text style={styles.buttonText}>Números de emergencia</Text>
-          </TouchableOpacity>
+          </TouchableOpacity>*/}
         </View>
       </ScrollView>
     </View>

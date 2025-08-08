@@ -1,5 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, } from 'react-native';
+import AxoMotorAPI from '../services/axomotor';
+import SplashScreen from '../components/SplashScreen';
 
 const TravelInfoCard = ({ title, location, address, time }) => (
   <View style={styles.card}>
@@ -70,6 +72,8 @@ const AnimatedTripButton = ({ status, onPress }) => {
 
 const TripScreen = () => {
   const [tripStatus, setTripStatus] = useState('inactivo');
+  const [tripLoading, setTripLoading ] = useState(true);
+  const [trip, setTrip ] = useState(null);
 
   const toggleTripStatus = () => {
     if (tripStatus === 'inactivo') setTripStatus('activo');
@@ -77,67 +81,81 @@ const TripScreen = () => {
     else if (tripStatus === 'pausado') setTripStatus('activo');
   };
 
-  const stops = [
-    {
-      title: 'Gasolinera El Rayo',
-      time: '09:10 AM',
-      status: 'completado',
-      duration: '15 min',
-    },
-    {
-      title: 'Estación Café',
-      time: '09:45 AM',
-      status: 'camino',
-      duration: '10 min',
-    },
-    {
-      title: 'Centro Logístico',
-      time: '10:15 AM',
-      status: 'omitido',
-      duration: '20 min',
-    },
-  ];
+  useEffect(() => {
+    const fetchTrip = async () => {
+      try {
+        const user = await AxoMotorAPI.getMe();
+        const trip = await AxoMotorAPI.getCurrentTrip(user.id);
+        
+        if (trip) {
+          setTripLoading(false);
+          setTrip(trip);
+          console.log('Viaje actual cargado:', trip.tripId);
+        } else {
+          setTripLoading(true);
+          console.warn('No se encontró viaje actual');
+        }
+      } catch (err) {
+        console.error('Error al obtener viaje actual:', err);
+      }
+    };
+
+    fetchTrip();
+  }, []);
+
+  // verifica si la app está cargando
+  if (tripLoading) {
+    return <SplashScreen />;
+  }
 
   return (
     <ScrollView style={styles.container}>
-      {/* Origen y destino en fila */}
-      <View style={styles.headerRow}>
-        <TravelInfoCard
-          title="Origen"
-          location="Oficinas"
-          address="Calle 123"
-          time="08:00 AM"
-        />
-        <TravelInfoCard
-          title="Destino"
-          location="Planta Central"
-          address="Avenida 456"
-          time="10:30 AM"
-        />
-      </View>
+      {
+        trip ? (
+          <>
+          {/* Origen y destino en fila */}
+          <View style={styles.headerRow}>
+            <TravelInfoCard
+              title="Origen"
+              location={trip.origin.name}
+              address={trip.origin.address}
+              time={trip.origin.dateTime}
+            />
+            <TravelInfoCard
+              title="Destino"
+              location={trip.destination.name}
+              address={trip.destination.address}
+              time={trip.destination.dateTime}
+            />
+          </View>
+          {/* Mapa */}
+          <View style={styles.placeholderMap}>
+            <Text style={styles.placeholderText}>
+              Aquí irá el mapa cuando la app esté en producción
+            </Text>
+          </View>
 
-      {/* Mapa */}
-      <View style={styles.placeholderMap}>
-        <Text style={styles.placeholderText}>
-          Aquí irá el mapa cuando la app esté en producción
-        </Text>
-      </View>
+          {/* Botón de viaje */}
+          <AnimatedTripButton status={tripStatus} onPress={toggleTripStatus} />
 
-      {/* Botón de viaje */}
-      <AnimatedTripButton status={tripStatus} onPress={toggleTripStatus} />
-
-      {/* Paradas */}
-      <View style={styles.stopsSection}>
-        {stops.map((stop, index) => (
-          <StopItem
-            key={index}
-            title={stop.title}
-            time={stop.time}
-            status={stop.status}
-            duration={stop.duration}
-          />
-        ))}
-      </View>
+          {/* Paradas */}
+          <View style={styles.stopsSection}>
+            {trip.plannedStops.map((stop, index) => (
+              <StopItem
+                key={index}
+                title={stop.name}
+                time={stop.dateTime}
+                status={stop.status}
+                duration={stop.duration}
+              />
+            ))}
+          </View>
+          </>
+        ) : (
+          <>
+          </>
+        )
+      }
     </ScrollView>
   );
 };

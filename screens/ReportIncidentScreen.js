@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, FlatList, Modal, Image } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { KeyboardAvoidingView, Platform } from 'react-native';
@@ -7,13 +7,60 @@ import { supabase } from '../services/supabase';
 import * as FileSystem from 'expo-file-system';
 import mime from 'mime';
 import * as ImageManipulator from 'expo-image-manipulator';
+import AxoMotorAPI from '../services/axomotor';
 
 const incidentTypes = {
-  Mecanico: ['Falla de frenos', 'Sobrecalentamiento de motor', 'Batería sin carga', 'Ponchadura'],
-  Ruta: ['Desviación', 'Bloqueo en ruta', 'Atropellamiento', 'Choque', 'Congestión vehicular'],
-  Carga: ['Daño a mercancía', 'Reparto', 'Conteo de mercancía', 'Robo'],
-  Seguridad: ['Asalto', 'Problema de salud'],
+  Mecánica: [
+    { code: 'engineFailure', label: 'Falla en el motor' },
+    { code: 'flatTire', label: 'Llanta ponchada' },
+    { code: 'brakeIssues', label: 'Problemas con el freno' },
+    { code: 'overheating', label: 'Sobrecalentamiento' },
+    { code: 'batteryFailure', label: 'Falla en la batería' },
+    { code: 'oilLeak', label: 'Fuga de aceite' },
+    { code: 'fuelLeak', label: 'Fuga de combustible' },
+    { code: 'steeringFailure', label: 'Falla en el volante' },
+    { code: 'transmissionIssue', label: 'Falla en el transmisor' },
+    { code: 'fuelShortage', label: 'Bajo combustible' },
+  ],
+  Ruta: [
+    { code: 'accident', label: 'Accidente' },
+    { code: 'trafficJam', label: 'Tráfico' },
+    { code: 'roadBlocked', label: 'Ruta bloqueada' },
+    { code: 'routeDeviation', label: 'Desviación de ruta' },
+  ],
+  Carga: [
+    { code: 'delayedDelivery', label: 'Entrega atrasada' },
+    { code: 'wrongDelivery', label: 'Entrega errónea' },
+    { code: 'loadShifted', label: 'Carga desplazada' },
+    { code: 'packageDamaged', label: 'Paquete dañado' },
+  ],
+  Conductor: [
+    { code: 'driverReportedSickness', label: 'Conductor enfermo' },
+    { code: 'driverError', label: 'Error de conductor' },
+    { code: 'driverViolation', label: 'Violación del conductor' },
+    { code: 'driverUnavailable', label: 'Conductor no disponible' },
+    { code: 'fatigueReported', label: 'Fatiga reportada' },
+    { code: 'cargoTheft', label: 'Robo de mercancía' },
+  ],
+  Seguridad: [
+    { code: 'theftAttemp', label: 'Intento de robo' },
+    { code: 'vehicleStolen', label: 'Vehículo robado' },
+    { code: 'panicButtonActivated', label: 'Botón de pánico activado' },
+  ],
+  Otros: [
+    { code: 'gpsSignalLost', label: 'Señal GPS perdida' },
+    { code: 'unauthorizedStop', label: 'Parada no autorizada' },
+    { code: 'inusualBehavior', label: 'Comportamiento inusual' },
+    { code: 'tamperingDetected', label: 'Manipulación detectada' },
+    { code: 'unknownIssue', label: 'Falla desconocida' },
+    { code: 'weatherDelay', label: 'Atraso por clima' },
+    { code: 'customsDelay', label: 'Atraso en aduana' },
+    { code: 'checkpointIssue', label: 'Problema en punto de control' },
+    { code: 'deviceFailure', label: 'Falla de dispositivo' },
+    { code: 'abnormalActivity', label: 'Actividad anormal' },
+  ],
 };
+
 
 const uploadImage = async (uri, userId) => {
   try {
@@ -72,19 +119,75 @@ const IncidentScreen = ({ navigation }) => {
   const [images, setImages] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [fullImage, setFullImage] = useState(null);
+  const [relatedIncidentId, setRelatedIncidentId] = useState('');
+  const [tripId, setTripId] = useState(null);
+  const [userId, setUserId] = useState(null);
+
+  useEffect(() => {
+    const fetchTrip = async () => {
+      try {
+        const user = await AxoMotorAPI.getMe();
+        setUserId(user.id);
+        const trip = await AxoMotorAPI.getCurrentTrip(user.id);
+        
+        if (trip?.tripId) {
+          setTripId(trip.tripId);
+          console.log('Viaje actual cargado:', trip.tripId);
+        } else {
+          console.warn('No se encontró viaje actual');
+        }
+      } catch (err) {
+        console.error('Error al obtener viaje actual:', err);
+      }
+    };
+
+    fetchTrip();
+  }, []);
+
+
 
   const handleSubmit = async () => {
-  const userId = (await supabase.auth.getUser()).data.user.id;
+    if (!selectedSubcategory || !description.trim()) {
+      alert('Por favor selecciona una subcategoría y escribe una descripción.');
+      return;
+    }
 
-  const uploadedPaths = [];
-  for (const uri of images) {
-    const path = await uploadImage(uri, userId);
-    if (path) uploadedPaths.push(path);
-  }
+    if (!tripId) {
+      alert('No se encontró un viaje actual. No se puede registrar la incidencia.');
+      return;
+    }
 
-  // Aquí podrías guardar el incidente en tu base de datos
-  console.log('Incidente enviado con imágenes:', uploadedPaths);
-};
+    const uploadedPaths = [];
+    for (const uri of images) {
+      const path = await uploadImage(uri, userId);
+      if (path) {
+        uploadedPaths.push({
+          fileId: path,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
+    const payload = {
+      tripId,
+      code: selectedSubcategory.code,
+      description: description.trim(),
+      relatedIncidentId: null, // puedes modificar esto más adelante
+      pictures: uploadedPaths.length > 0 ? uploadedPaths : null,
+    };
+
+    try {
+      console.log('Payload a enviar:', payload);
+      const result = await AxoMotorAPI.reportIncident(payload);
+      alert('Incidencia registrada exitosamente');
+      navigation.goBack(); // o navega a otra pantalla si lo prefieres
+    } catch (err) {
+      console.error('Error al reportar la incidencia:', err);
+      alert('Ocurrió un error al registrar la incidencia');
+    }
+  };
+
+
 
 
   const handleCategorySelect = (category) => {
@@ -97,7 +200,7 @@ const IncidentScreen = ({ navigation }) => {
   };
 
   const handleOpenMap = () => {
-    navigation.navigate('Viaje');
+    navigation.navigate('trip');
   };
 
   const handleAddImage = async (source) => {
@@ -168,21 +271,24 @@ const IncidentScreen = ({ navigation }) => {
                 key={index}
                 style={[
                   styles.subcategoryButton,
-                  selectedSubcategory === sub && styles.selectedSubcategory,
+                  selectedSubcategory?.code === sub.code && styles.selectedSubcategory,
                 ]}
                 onPress={() => handleSubcategorySelect(sub)}
               >
-                <Text style={styles.subcategoryText}>{sub}</Text>
+                <Text style={styles.subcategoryText}>{sub.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
 
+
         {/* Descripción */}
         <Text style={styles.label}>Descripción del incidente:</Text>
         <TextInput
+          value={description}
+          onChangeText={setDescription}
           ref={inputRef}
-          style={{ borderWidth: 1, padding: 10, minHeight: 80, backgroundColor: '#fff' }}
+          style={styles.input}
           placeholder="Escribe una descripción..."
           multiline
           onFocus={() => {
@@ -226,6 +332,14 @@ const IncidentScreen = ({ navigation }) => {
         </View>
 
         {/* Botón enviar */}
+        <Text style={styles.label}>ID de incidente relacionado (opcional):</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej: 688cdc69c24b662d1dfcfd3b"
+          value={relatedIncidentId}
+          onChangeText={setRelatedIncidentId}
+        />
+
         <TouchableOpacity style={styles.sendButton} onPress={handleSubmit}>
           <Text style={styles.sendButtonText}>Enviar incidente</Text>
         </TouchableOpacity>
@@ -301,6 +415,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
   },
+  description: {
+
+    borderWidth: 1, padding: 10, minHeight: 80, backgroundColor: '#fff'
+  },  
   mainButtonText: {
     color: '#fff',
     textAlign: 'center',

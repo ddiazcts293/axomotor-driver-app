@@ -12,15 +12,16 @@ import IncidentsScreen from './screens/IncidentsScreen';
 import IncidentGalleryScreen from './screens/IncidentGalleryScreen';
 import TripScreen from './screens/TripScreen';
 import DriverScreen from './screens/DriverScreen';
+import LinkDeviceScreen from './screens/LinkDeviceScreen'
 
-import { auth } from './services/supabase';
+import { auth, sessionStorage } from './services/supabase';
+import DeviceAPI from './services/device';
+import AxoMotorAPI from './services/axomotor';
 
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 import './backgroundLocation';
 import { LOCATION_TASK_NAME } from './backgroundLocation';
-
-
 
 /*
 const linking = {
@@ -42,8 +43,9 @@ const linking = {
 
 export default function App() {
   const Stack = createNativeStackNavigator();
-  const [ session, setSession ] = useState(null);
+  const [ loggedIn, setLoggedIn ] = useState(null);
   const [ loading, setLoading ] = useState(true);
+  const [ sessionLoaded, setSessionLoaded ] = useState(false);
 
   /*
   // Primer useEffect para manejo de sesión y deep link
@@ -116,26 +118,54 @@ export default function App() {
 
   */
 
-  // manejo de sesión
+  // carga la información del dispositivo enlazado
+  useEffect(() => {
+    const initDevice = async () => DeviceAPI.init();
+    initDevice();
+  });
+
+  // carga la sesión de supabase almacenada
+  useEffect(() => {
+    const checkSession = async () => {
+      const storedSession = await sessionStorage.load();
+      if (storedSession) {
+        auth.setSession({
+          access_token: storedSession.access_token,
+          refresh_token: storedSession.refresh_token,
+        });
+
+        setSessionLoaded(true);
+      }
+    };
+
+    checkSession();
+  }, []);
+
+  // establece un suscriptor de cambios de estado de la sesión de supabase
   useEffect(() => {
     // cargar sesión actual al inicio
     auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+      setLoggedIn(session);
     });
 
     // establece una subscripción para recibir actualizaciones de autenticación 
     // en tiempo real
     const { data: listener } = auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         console.log('Auth event:', event);
-        setSession(session);
+        setLoggedIn(session);
 
         if (event === 'INITIAL_SESSION') {
           setLoading(false);
-        } else if (event === 'SIGNED_IN') {
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           //Alert.alert('¡Bienvenido!', 'Inicio de sesión exitoso');
+          if (!sessionLoaded) {
+            await sessionStorage.save(session);
+          }
+          //await sessionStorage.save()
         } else if (event === 'SIGNED_OUT') {
-          Alert.alert('¡Hasta luego!', 'Sesión cerrada');
+          //Alert.alert('¡Hasta luego!', 'Sesión cerrada');
+          await sessionStorage.remove();
         }
       }
     );
@@ -155,7 +185,7 @@ export default function App() {
       <Stack.Navigator>
         {
           // verifica si se ha iniciado sesión
-          session ? (
+          loggedIn ? (
             // carga una colección de pantallas
             <>
               <Stack.Screen
@@ -184,6 +214,11 @@ export default function App() {
                 name="incident_gallery"
                 component={IncidentGalleryScreen}
                 options={{ title: 'Galería de incidencias' }}
+              />
+              <Stack.Screen
+                name="link_device"
+                component={LinkDeviceScreen}
+                options={{ title: 'Enlazar dispositivo' }}
               />
               <Stack.Screen
                 name="trip"
